@@ -4,9 +4,15 @@
   <title>我的全栈网站</title>
 </head>
 <body>
-  <h1>Hello MAX !</h1>
-  <button onclick="getMessage()">点我获取后端数据</button>
-  <p id="response"></p>
+  <h1>留言板</h1>
+
+  <div>
+    <input id="msgInput" type="text" placeholder="输入一条消息..." />
+    <button onclick="addMessage()">提交</button>
+  </div>
+
+  <h2>消息列表</h2>
+  <ul id="messages"></ul>
 
   <script src="script.js"></script>
 </body>
