@@ -1,64 +1,85 @@
-from flask import Flask, jsonify, request
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
+from psycopg2.extras import RealDictCursor
+from werkzeug.security import generate_password_hash, check_password_hash
 import os
 
 app = Flask(__name__)
-CORS(app)  # 允许跨域访问（前端才能正常调用）
+CORS(app)
 
-# 从环境变量读取 DATABASE_URL
+# 数据库连接（从 Render 环境变量获取）
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_db_connection():
-    conn = psycopg2.connect(DATABASE_URL, sslmode="require")
-    return conn
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
-# ✅ 获取所有消息
-@app.route("/messages", methods=["GET"])
-def get_messages():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT id, text, created_at FROM messages ORDER BY id DESC;")
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-
-    messages = []
-    for row in rows:
-        messages.append({
-            "id": row[0],
-            "text": row[1],
-            "created_at": row[2].isoformat()
-        })
-
-    return jsonify(messages)
-
-# ✅ 新增一条消息
-@app.route("/add", methods=["POST"])
-def add_message():
-    data = request.get_json()
-    text = data.get("text", "")
-
-    if not text:
-        return jsonify({"error": "text is required"}), 400
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("INSERT INTO messages (text) VALUES (%s) RETURNING id, created_at;", (text,))
-    new_row = cur.fetchone()
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return jsonify({
-        "id": new_row[0],
-        "text": text,
-        "created_at": new_row[1].isoformat()
-    })
-
+# 测试 API
 @app.route("/")
 def home():
     return jsonify({"message": "Flask + Supabase backend running!"})
+
+
+# 注册 API
+@app.route("/register", methods=["POST"])
+def register():
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+
+    if not username or not password:
+        return jsonify({"error": "用户名和密码不能为空"}), 400
+
+    hashed_pw = generate_password_hash(password)
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO users (username, password_hash) VALUES (%s, %s) RETURNING id",
+                    (username, hashed_pw))
+        user_id = cur.fetchone()["id"]
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"message": "注册成功", "user_id": user_id}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# 登录 API
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE username = %s", (username,))
+    user = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if user is None:
+        return jsonify({"error": "用户不存在"}), 404
+
+    if not check_password_hash(user["password_hash"], password):
+        return jsonify({"error": "密码错误"}), 401
+
+    return jsonify({"message": "登录成功", "username": username}), 200
+
+
+# 查看用户列表（临时给管理员看，后面可以加密码保护）
+@app.route("/users", methods=["GET"])
+def users():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, username, created_at FROM users ORDER BY created_at DESC")
+    users = cur.fetchall()
+    cur.close()
+    conn.close()
+    return jsonify(users)
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
