@@ -1,19 +1,73 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
-  <title>我的全栈网站</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>注册 / 登录</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h1 { color: #333; }
+    form { margin-bottom: 20px; }
+    input { display: block; margin: 10px 0; padding: 8px; width: 200px; }
+    button { padding: 8px 16px; }
+    #result { margin-top: 20px; font-weight: bold; color: green; }
+  </style>
 </head>
 <body>
-  <h1>留言板</h1>
+  <h1>注册</h1>
+  <form id="registerForm">
+    <input type="text" id="regUsername" placeholder="用户名" required />
+    <input type="password" id="regPassword" placeholder="密码" required />
+    <button type="submit">注册</button>
+  </form>
 
-  <div>
-    <input id="msgInput" type="text" placeholder="输入一条消息..." />
-    <button onclick="addMessage()">提交</button>
-  </div>
+  <h1>登录</h1>
+  <form id="loginForm">
+    <input type="text" id="loginUsername" placeholder="用户名" required />
+    <input type="password" id="loginPassword" placeholder="密码" required />
+    <button type="submit">登录</button>
+  </form>
 
-  <h2>消息列表</h2>
-  <ul id="messages"></ul>
+  <div id="result"></div>
 
-  <script src="script.js"></script>
+  <script>
+    const API_URL = "https://my-one-fxkn.onrender.com"; // 你的 Flask 后端地址
+
+    // 注册
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const username = document.getElementById("regUsername").value;
+      const password = document.getElementById("regPassword").value;
+
+      const res = await fetch(`${API_URL}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await res.json();
+      document.getElementById("result").innerText = JSON.stringify(data);
+    });
+
+    // 登录
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const username = document.getElementById("loginUsername").value;
+      const password = document.getElementById("loginPassword").value;
+
+      const res = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById("result").innerText = "欢迎回来, " + data.username;
+      } else {
+        document.getElementById("result").innerText = data.error;
+      }
+    });
+  </script>
 </body>
 </html>
